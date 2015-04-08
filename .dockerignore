@@ -1,4 +1,4 @@
-db-*.sqlite
+.git/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -43,7 +43,6 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
-*,cover
 
 # Translations
 *.mo
@@ -57,3 +56,5 @@ docs/_build/
 
 # PyBuilder
 target/
+
+

@@ -36,8 +36,8 @@ def filldata():
         #   The load_fixtures function can be implemented to fill-in the
         # database.
         load_fixtures()
-    except ImportError:
-        print("Fixtures data not found, load skipped.")
+    except ImportError as e:
+        print("Fixtures data not found, load skipped. | Error: {0}".format(e))
 
 
 if __name__ == '__main__':

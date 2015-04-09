@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 import os
 from elibrarian_app import create_app, db
+from elibrarian_app.models import Author, AuthorDetail, Authors2LiteraryWorks, \
+    BookGenreSnap, BookSeries, BookSeriesDetail, BookSeriesSnap, Genre, \
+    GenreDetail, LiteraryWork, LiteraryWorkStorage
 from flask.ext.migrate import Migrate, MigrateCommand
 from flask.ext.script import Manager, Shell
 
@@ -11,7 +14,14 @@ migrate = Migrate(app, db)
 
 
 def make_shell_context():
-    return dict(app=app, db=db)
+    return dict(app=app, db=db, Author=Author, AuthorDetail=AuthorDetail,
+                Authors2LiteraryWorks=Authors2LiteraryWorks,
+                BookGenreSnap=BookGenreSnap, BookSeries=BookSeries,
+                BookSeriesDetail=BookSeriesDetail,
+                BookSeriesSnap=BookSeriesSnap, Genre=Genre,
+                GenreDetail=GenreDetail, LiteraryWork=LiteraryWork,
+                LiteraryWorkStorage=LiteraryWorkStorage)
+
 
 manager.add_command("shell", Shell(make_context=make_shell_context))
 manager.add_command('db', MigrateCommand)

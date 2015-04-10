@@ -10,6 +10,8 @@ class Config:
     SQLALCHEMY_COMMIT_ON_TEARDOWN = True
     SQLALCHEMY_RECORD_QUERIES = True
 
+    ELIBRARIAN_ITEMS_PER_PAGE = 15
+
     @staticmethod
     def init_app(app):
         pass

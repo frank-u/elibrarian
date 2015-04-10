@@ -1,5 +1,6 @@
-from re import compile
 from datetime import datetime
+from flask import url_for
+from re import compile
 from . import db
 
 
@@ -20,10 +21,25 @@ class Author(db.Model):
     @property
     def full_name(self):
         # TODO: Return full_name on preferred lang or default otherwise
-        details = self.details.filter_by(lang=self.original_lang).first()
+        details = self.details.first()
         full_name_row = " ".join([details.first_name, details.middle_name,
                                   details.last_name])
         return compile(r'\s+').sub(' ', full_name_row)
+
+    def to_json(self):
+        details = self.details.first()
+        json_post = {
+            'id': self.id,
+            'url': url_for('api.get_author', author_id=self.id, _external=True),
+            'name': self.full_name
+        }
+        if self.original_lang:
+            json_post['original_lang'] = self.original_lang
+        if details.nickname:
+            json_post['nickname'] = details.nickname
+        if details.wikipedia_hyperlink:
+            json_post['wikipedia_hyperlink'] = details.wikipedia_hyperlink
+        return json_post
 
 
 class AuthorDetail(db.Model):

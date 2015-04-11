@@ -11,12 +11,8 @@ class Author(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     original_lang = db.Column(db.String(3), nullable=True)
 
-    details = db.relationship('AuthorDetail', backref='author',
-                              lazy='dynamic')
-    literary_works = db.relationship('Authors2LiteraryWorks',
-                                     backref=db.backref('author',
-                                                        lazy='joined'),
-                                     lazy='select')
+    details = db.relationship('AuthorDetail', backref='author', lazy='dynamic')
+    literary_works = db.relationship('Authors2LiteraryWorks', backref='author')
 
     @property
     def full_name(self):
@@ -26,12 +22,23 @@ class Author(db.Model):
                                   details.last_name])
         return compile(r'\s+').sub(' ', full_name_row)
 
+    def get_literary_works(self):
+        return [assoc.literary_works for assoc in self.literary_works]
+
     def to_json(self):
         details = self.details.first()
         json_post = {
             'id': self.id,
             'url': url_for('api.get_author', author_id=self.id, _external=True),
-            'name': self.full_name
+            'name': self.full_name,
+            'literary_works': [
+                {'title': lw.title,
+                 'id': lw.id,
+                 'url': url_for('api.get_literary_work', work_id=lw.id,
+                                _external=True)
+                 }
+                for lw in self.get_literary_works()
+            ]
         }
         if self.original_lang:
             json_post['original_lang'] = self.original_lang
@@ -64,6 +71,35 @@ class LiteraryWork(db.Model):
     creation_datestring = db.Column(db.String(63), nullable=True)
     original_lang = db.Column(db.String(3), nullable=True)
     added = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def get_authors(self):
+        lws = Authors2LiteraryWorks.query.filter_by(
+            literary_work_id=self.id).all()
+        return [Author.query.filter_by(id=lw.author_id).scalar() for lw in lws]
+
+    def to_json(self):
+        json = {
+            'id': self.id,
+            'url': url_for('api.get_literary_work', work_id=self.id,
+                           _external=True),
+            'title': self.title,
+            'lang': self.lang,
+            'authors': [
+                {'name': author.full_name,
+                 'id': author.id,
+                 'url': url_for('api.get_author', author_id=author.id,
+                                _external=True)
+                 }
+                for author in self.get_authors()
+            ]
+        }
+        if self.original_lang:
+            json['original_lang'] = self.original_lang
+        if self.annotation:
+            json['annotation'] = self.annotation
+        if self.creation_datestring:
+            json['creation_datestring'] = self.creation_datestring
+        return json
 
 
 class LiteraryWorkStorage(db.Model):
@@ -138,7 +174,7 @@ class Authors2LiteraryWorks(db.Model):
                                  primary_key=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
-    literary_works = db.relationship('LiteraryWork', backref="authors")
+    literary_works = db.relationship('LiteraryWork', backref="author_assocs")
 
 
 class BookSeriesSnap(db.Model):

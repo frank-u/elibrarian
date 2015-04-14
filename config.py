@@ -10,7 +10,9 @@ class Config:
     SQLALCHEMY_COMMIT_ON_TEARDOWN = True
     SQLALCHEMY_RECORD_QUERIES = True
 
+    ELIBRARIAN_ADMIN = os.environ.get('ELIBRARIAN_ADMIN') or 'root@localhost'
     ELIBRARIAN_ITEMS_PER_PAGE = 15
+    ELIBRARIAN_TOKEN_EXPIRATION_TIME = 3600
 
     @staticmethod
     def init_app(app):

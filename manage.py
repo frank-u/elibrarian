@@ -29,11 +29,16 @@ manager.add_command('db', MigrateCommand)
 
 @manager.command
 def resetdb():
+    from elibrarian_app.models import AuthRole
+
     print("Dropping database:...")
     db.drop_all()
 
     print("Recreating models:...")
     db.create_all()
+
+    print("Creating basic roles:...")
+    AuthRole.insert_roles()
 
 
 @manager.command

@@ -32,9 +32,9 @@ def make_json_response(page, pages, per_page, href, href_parent,
     return jsonify(json_response_body)
 
 
-from . import authors, literary_works
-
-
 @api.route('/', methods=['GET'])
 def index():
     return "REST API is not done yet!"
+
+
+from . import authentication, authors, errors, literary_works

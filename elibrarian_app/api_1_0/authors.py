@@ -1,9 +1,11 @@
 from flask import current_app, jsonify, request, url_for
 from . import api, make_json_response
-from ..models import Author
+from .authentication import permission_required
+from ..models import Author, Permission
 
 
 @api.route('/authors', methods=['GET'])
+@permission_required(Permission.VIEW_LIBRARY_ITEMS)
 def get_authors():
     """List of authors"""
     page = request.args.get('page', 1, type=int)
@@ -27,6 +29,7 @@ def get_authors():
 
 
 @api.route('/authors/<int:author_id>', methods=['GET'])
+@permission_required(Permission.VIEW_LIBRARY_ITEMS)
 def get_author(author_id):
     """Author details"""
     author = Author.query.get_or_404(author_id)

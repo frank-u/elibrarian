@@ -1,9 +1,11 @@
 from flask import current_app, jsonify, request, url_for
 from . import api, make_json_response
-from ..models import LiteraryWork
+from .authentication import permission_required
+from ..models import LiteraryWork, Permission
 
 
 @api.route('/literary-works', methods=['GET'])
+@permission_required(Permission.VIEW_LIBRARY_ITEMS)
 def get_literary_works():
     """List of literary-works"""
     page = request.args.get('page', 1, type=int)
@@ -31,6 +33,7 @@ def get_literary_works():
 
 
 @api.route('/literary-works/<int:work_id>', methods=['GET'])
+@permission_required(Permission.VIEW_LIBRARY_ITEMS)
 def get_literary_work(work_id):
     """Literary work"""
     work = LiteraryWork.query.get_or_404(work_id)

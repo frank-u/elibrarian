@@ -308,7 +308,10 @@ class LiteraryWorkDetail(db.Model):
     annotation = db.Column(db.Text, nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
-    db.UniqueConstraint('literary_work_id', 'lang', name="lw-lang-unique")
+    __table_args__ = (
+        db.UniqueConstraint('literary_work_id', 'lang', name='lw_lang_unique'),
+        {},
+    )
 
     files = db.relationship('LiteraryWorkStorage', backref='literaryworkdetail',
                             lazy='dynamic')

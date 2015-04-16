@@ -256,12 +256,12 @@ class LiteraryWork(db.Model):
     """Books, articles, and other literary works metadata"""
     __tablename__ = "literary_works"
     id = db.Column(db.Integer, primary_key=True)
-    lang = db.Column(db.String(3), nullable=False)
-    title = db.Column(db.String(255), nullable=False)
-    annotation = db.Column(db.Text, nullable=True)
     creation_datestring = db.Column(db.String(63), nullable=True)
-    original_lang = db.Column(db.String(3), nullable=True)
-    added = db.Column(db.DateTime, default=datetime.utcnow)
+    original_lang = db.Column(db.String(3), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    details = db.relationship('LiteraryWorkDetail', backref='literarywork',
+                              lazy='dynamic')
 
     def get_authors(self):
         lws = Authors2LiteraryWorks.query.filter_by(
@@ -273,8 +273,10 @@ class LiteraryWork(db.Model):
             'id': self.id,
             'url': url_for('api.get_literary_work', work_id=self.id,
                            _external=True),
-            'title': self.title,
-            'lang': self.lang,
+            # TODO: Implement language agnostic API or return titles on all
+            # stored languages
+            # 'title': self.title,
+            'original_lang': self.original_lang,
             'authors': [
                 {'name': author.full_name,
                  'id': author.id,
@@ -284,22 +286,43 @@ class LiteraryWork(db.Model):
                 for author in self.get_authors()
             ]
         }
-        if self.original_lang:
-            json['original_lang'] = self.original_lang
-        if self.annotation:
-            json['annotation'] = self.annotation
+        # TODO: Implement language agnostic API or return annotations on all
+        # stored languages
+        # if self.annotation:
+        # json['annotation'] = self.annotation
         if self.creation_datestring:
             json['creation_datestring'] = self.creation_datestring
         return json
 
 
-class LiteraryWorkStorage(db.Model):
-    """Support storing of files - actual literary work (book) data"""
-    __tablename__ = 'literary_works_storage'
+class LiteraryWorkDetail(db.Model):
+    """Books, articles, and other literary works metadata details in different
+    languages"""
+    __tablename__ = "literary_works_details"
     id = db.Column(db.Integer, primary_key=True)
     literary_work_id = db.Column(db.Integer,
                                  db.ForeignKey('literary_works.id'),
                                  nullable=False)
+    lang = db.Column(db.String(5), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    annotation = db.Column(db.Text, nullable=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    db.UniqueConstraint('literary_work_id', 'lang', name="lw-lang-unique")
+
+    files = db.relationship('LiteraryWorkStorage', backref='literaryworkdetail',
+                            lazy='dynamic')
+
+
+class LiteraryWorkStorage(db.Model):
+    """Support storing of files - actual literary work (book) data for selected
+    languages"""
+    __tablename__ = 'literary_works_storage'
+    id = db.Column(db.Integer, primary_key=True)
+    literary_work_details_id = db.Column(
+        db.Integer,
+        db.ForeignKey('literary_works_details.id'),
+        nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     mime_type = db.Column(db.String(63), nullable=False)

@@ -413,3 +413,26 @@ class BookGenreSnap(db.Model):
                                  primary_key=True)
     genre_id = db.Column(db.Integer, db.ForeignKey('genres.id'),
                          primary_key=True)
+
+
+# ----=[ user relations with the library ]=-------------------------------------
+class AuthUserPersonalLibrary(db.Model):
+    """User's personal library. A subset of all known books in "literary_works".
+    Contains user's library usage statistics (what to read, book ratings...)"""
+    __tablename__ = "users_personal_library"
+    user_id = db.Column(db.Integer, db.ForeignKey('auth_users.id'))
+    literary_work_id = db.Column(db.Integer, db.ForeignKey('literary_works.id'))
+    __table_args__ = (
+        db.PrimaryKeyConstraint('user_id', 'literary_work_id'),
+        {},
+    )
+    # Special flags about book in user's personal collection
+    plan_to_read = db.Column(db.Boolean, default=False, nullable=False)
+    read_flag = db.Column(db.Boolean, default=False, nullable=False)
+    # read progress percentage, not null indicating that user start reading book
+    read_progress = db.Column(db.Integer, default=None, nullable=True)
+    read_date = db.Column(db.Date, nullable=True)
+    rating = db.Column(db.Integer, nullable=True)
+    comment = db.Column(db.Text, nullable=True)
+
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)

@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 import os
 from elibrarian_app import create_app, db
-from elibrarian_app.models import Author, AuthorDetail, Authors2LiteraryWorks, \
+from elibrarian_app.models import AuthRole, AuthUser, AuthUserPersonalLibrary, \
+    Author, AuthorDetail, Authors2LiteraryWorks, \
     BookGenreSnap, BookSeries, BookSeriesDetail, BookSeriesSnap, Genre, \
     GenreDetail, LiteraryWork, LiteraryWorkStorage
-from flask.ext.migrate import Migrate, MigrateCommand
+from flask.ext.migrate import Migrate, MigrateCommand, upgrade
 from flask.ext.script import Manager, Shell
 
 config_name = os.getenv('FLASK_CONFIG') or 'default'
@@ -14,7 +15,9 @@ migrate = Migrate(app, db)
 
 
 def make_shell_context():
-    return dict(app=app, db=db, Author=Author, AuthorDetail=AuthorDetail,
+    return dict(app=app, db=db, AuthRole=AuthRole, AuthUser=AuthUser,
+                AuthUserPersonalLibrary=AuthUserPersonalLibrary,
+                Author=Author, AuthorDetail=AuthorDetail,
                 Authors2LiteraryWorks=Authors2LiteraryWorks,
                 BookGenreSnap=BookGenreSnap, BookSeries=BookSeries,
                 BookSeriesDetail=BookSeriesDetail,
@@ -31,11 +34,8 @@ manager.add_command('db', MigrateCommand)
 def resetdb():
     from elibrarian_app.models import AuthRole
 
-    print("Dropping database:...")
-    db.drop_all()
-
-    print("Recreating models:...")
-    db.create_all()
+    print("Starting database upgrade:...")
+    upgrade()
 
     print("Creating basic roles:...")
     AuthRole.insert_roles()

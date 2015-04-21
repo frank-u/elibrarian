@@ -40,6 +40,7 @@ def test():
 
 @manager.command
 def resetdb():
+    """Upgrade database"""
     from elibrarian_app.models import AuthRole
 
     print("Starting database upgrade:...")
@@ -51,6 +52,7 @@ def resetdb():
 
 @manager.command
 def filldata():
+    """Upgrade database and try to import some initial test data"""
     resetdb()
     try:
         #   Fixtures intended to exist only at the user computer to quickly fill

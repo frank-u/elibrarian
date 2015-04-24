@@ -1,5 +1,13 @@
 #!/usr/bin/env python
 import os
+
+COV = None
+if os.environ.get('FLASK_COVERAGE'):
+    import coverage
+
+    COV = coverage.coverage(branch=True, include='elibrarian_app/*')
+    COV.start()
+
 from elibrarian_app import create_app, db
 from elibrarian_app.models import AuthRole, AuthUser, AuthUserPersonalLibrary, \
     Author, AuthorDetail, Authors2LiteraryWorks, \
@@ -31,11 +39,28 @@ manager.add_command('db', MigrateCommand)
 
 
 @manager.command
-def test():
+def test(coverage=False):
     """Run the unit tests."""
+    if coverage and not os.environ.get('FLASK_COVERAGE'):
+        import sys
+
+        os.environ['FLASK_COVERAGE'] = '1'
+        os.execvp(sys.executable, [sys.executable] + sys.argv)
+
     import unittest
+
     tests = unittest.TestLoader().discover('tests')
     unittest.TextTestRunner(verbosity=2).run(tests)
+
+    if COV:
+        COV.stop()
+        COV.save()
+        print('Coverage run results:')
+        COV.report()
+        basedir = os.path.abspath(os.path.dirname(__file__))
+        coverage_stats_directory = os.path.join(basedir, 'tmp/coverage')
+        COV.html_report(directory=coverage_stats_directory)
+        COV.erase()
 
 
 @manager.command
@@ -55,10 +80,10 @@ def filldata():
     """Upgrade database and try to import some initial test data"""
     resetdb()
     try:
-        #   Fixtures intended to exist only at the user computer to quickly fill
+        # Fixtures intended to exist only at the user computer to quickly fill
         # the database with test or real data.
         from __test_data import load_fixtures
-        #   The load_fixtures function can be implemented to fill-in the
+        # The load_fixtures function can be implemented to fill-in the
         # database.
         load_fixtures()
     except ImportError as e:

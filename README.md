@@ -1,4 +1,6 @@
 # eLibrarian
+[![Build Status](https://travis-ci.org/frank-u/elibrarian.svg?branch=master)](https://travis-ci.org/frank-u/elibrarian)
+
 &nbsp;&nbsp;Keep track of what you reading.
 
 # Purpose

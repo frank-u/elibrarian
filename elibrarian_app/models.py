@@ -205,6 +205,11 @@ class Author(db.Model):
     details = db.relationship('AuthorDetail', backref='author', lazy='dynamic')
     literary_works = db.relationship('Authors2LiteraryWorks', backref='author')
 
+    #def __init__(self, last_name, lang, original_lang=None):
+    #    super().__init__()
+    #    if original_lang:
+    #        self.original_lang = original_lang
+
     @property
     def full_name(self):
         # TODO: Return full_name on preferred lang or default otherwise

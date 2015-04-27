@@ -1,5 +1,7 @@
 db:
   image: postgres
+  ports:
+    - "9999:5432"
 web:
   build: .
   command: python manage.py runserver --host 0.0.0.0

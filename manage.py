@@ -12,7 +12,7 @@ from elibrarian_app import create_app, db
 from elibrarian_app.models import AuthRole, AuthUser, AuthUserPersonalLibrary, \
     Author, AuthorDetail, Authors2LiteraryWorks, \
     BookGenreSnap, BookSeries, BookSeriesDetail, BookSeriesSnap, Genre, \
-    GenreDetail, LiteraryWork, LiteraryWorkStorage
+    GenreDetail, LiteraryWork, LiteraryWorkDetail, LiteraryWorkStorage
 from flask.ext.migrate import Migrate, MigrateCommand, upgrade
 from flask.ext.script import Manager, Shell
 
@@ -31,6 +31,7 @@ def make_shell_context():
                 BookSeriesDetail=BookSeriesDetail,
                 BookSeriesSnap=BookSeriesSnap, Genre=Genre,
                 GenreDetail=GenreDetail, LiteraryWork=LiteraryWork,
+                LiteraryWorkDetail=LiteraryWorkDetail,
                 LiteraryWorkStorage=LiteraryWorkStorage)
 
 

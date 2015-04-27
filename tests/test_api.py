@@ -179,3 +179,52 @@ class RESTAPITestCase(unittest.TestCase):
         self.assertTrue("next" not in json_response["_links"].keys())
         self.assertTrue(json_response["_items"] != [])
         self.assertTrue(response.status_code == 200)
+
+    def test_get_literary_work(self):
+        admin_role = AuthRole.query.filter_by(name='administrator').first()
+        duke = AuthUser(email="duke@example.com", username="duke",
+                        password="hardcore", confirmed=True,
+                        role=admin_role)
+        db.session.add(duke)
+
+        author1 = Author()
+        db.session.add(author1)
+
+        author1_details = AuthorDetail()
+        author1_details.lang = "en"
+        author1_details.last_name = "London"
+        author1_details.first_name = "Jack"
+
+        author1.details.append(author1_details)
+        db.session.commit()
+
+        lw = LiteraryWork()
+        lw.original_lang = "en"
+        lw.creation_datestring = "1910"
+        db.session.add(lw)
+
+        lwd = LiteraryWorkDetail()
+        lwd.lang = "en"
+        lwd.title = "Burning Daylight"
+
+        lw.details.append(lwd)
+        author1.literary_works.append(lw)
+        db.session.commit()
+
+        # get with valid login and some data
+        response = self.client.get(
+            url_for('api.get_literary_work', work_id=lw.id, _external=True),
+            headers=self.generate_auth_header("duke@example.com", "hardcore")
+        )
+        json_response = loads(response.data.decode('utf-8'))
+        #self.assertTrue(json_response["authors"][0]["id"] == author1.id)
+        #self.assertTrue(json_response["authors"][0]["name"] == "Jack London")
+        #self.assertTrue(json_response["authors"][0]["url"] ==
+        #                url_for('api.get_author', author_id=author1.id,
+        #                        _external=True))
+        #self.assertTrue(json_response["id"] == lw.id)
+        #self.assertTrue(json_response["original_lang"] == "en")
+        #self.assertTrue(json_response["url"] ==
+        #                url_for('api.get_literary_work',
+        #                        work_id=lw.id, _external=True))
+        self.assertTrue(response.status_code == 200)

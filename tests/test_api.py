@@ -76,34 +76,34 @@ class RESTAPITestCase(unittest.TestCase):
             url_for('api.get_literary_works'),
             headers=self.generate_auth_header("duke@example.com", "hardcore")
         )
+        self.assertTrue(response.status_code == 200)
         json_response = loads(response.data.decode('utf-8'))
+
+        with current_app.test_request_context('/'):
+            lw_pg1 = url_for('api.get_literary_works', page=1, _external=True)
+            lw_pg2 = url_for('api.get_literary_works', page=2, _external=True)
+            lw_pg3 = url_for('api.get_literary_works', page=3, _external=True)
+            parent_pg = url_for('api.index', _external=True)
+            self_pg = url_for('api.get_literary_works', _external=True)
+
         self.assertTrue(json_response["_meta"]["total"] == 100)
         self.assertTrue(json_response["_meta"]["page"] == 1)
         self.assertTrue(json_response["_meta"]["max_results"] ==
                         current_app.config['ELIBRARIAN_ITEMS_PER_PAGE'])
-        self.assertTrue(json_response["_links"]["next"] ==
-                        url_for('api.get_literary_works',
-                                page=2, _external=True))
-        self.assertTrue(json_response["_links"]["parent"]["href"] ==
-                        url_for('api.index', _external=True))
-        self.assertTrue(json_response["_links"]["self"]["href"] ==
-                        url_for('api.get_literary_works', _external=True))
-        self.assertTrue(response.status_code == 200)
+        self.assertTrue(json_response["_links"]["next"] == lw_pg2)
+        self.assertTrue(json_response["_links"]["parent"]["href"] == parent_pg)
+        self.assertTrue(json_response["_links"]["self"]["href"] == self_pg)
 
         response2 = self.client.get(
             url_for('api.get_literary_works', page=2),
             headers=self.generate_auth_header("duke@example.com", "hardcore")
         )
+        self.assertTrue(response2.status_code == 200)
         json_response2 = loads(response2.data.decode('utf-8'))
         self.assertTrue(json_response2["_meta"]["total"] == 100)
         self.assertTrue(json_response2["_meta"]["page"] == 2)
-        self.assertTrue(json_response2["_links"]["next"] ==
-                        url_for('api.get_literary_works',
-                                page=3, _external=True))
-        self.assertTrue(json_response2["_links"]["prev"] ==
-                        url_for('api.get_literary_works',
-                                page=1, _external=True))
-        self.assertTrue(response2.status_code == 200)
+        self.assertTrue(json_response2["_links"]["next"] == lw_pg3)
+        self.assertTrue(json_response2["_links"]["prev"] == lw_pg1)
 
     def test_get_literary_works(self):
         admin_role = AuthRole.query.filter_by(name='administrator').first()

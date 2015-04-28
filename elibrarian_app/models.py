@@ -223,7 +223,7 @@ class Author(db.Model):
             'url': url_for('api.get_author', author_id=self.id, _external=True),
             'name': self.full_name,
             'literary_works': [
-                {'title': lw.title,
+                {#'title': lw.title,
                  'id': lw.id,
                  'url': url_for('api.get_literary_work', work_id=lw.id,
                                 _external=True)

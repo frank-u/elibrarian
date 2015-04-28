@@ -29,7 +29,6 @@ class ConfigTestingVirtualenv(Config):
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         'TEST_DATABASE_URL') or DB_TEST_SQLITE_URL
     WTF_CSRF_ENABLED = False
-    SERVER_NAME = "localhost:5000"
 
 
 class ConfigDevDocker(ConfigDev):

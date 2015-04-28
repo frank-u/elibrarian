@@ -5,6 +5,7 @@ from elibrarian_app.models import AuthRole, AuthUser, Author, AuthorDetail, \
     LiteraryWork, LiteraryWorkDetail
 from flask import current_app, url_for
 from json import loads
+from pprint import pprint
 
 
 class RESTAPITestCase(unittest.TestCase):
@@ -15,6 +16,13 @@ class RESTAPITestCase(unittest.TestCase):
         db.create_all()
         AuthRole.insert_roles()
         self.client = self.app.test_client()
+        with current_app.test_request_context('/'):
+            self.index_ext_lnk = url_for('api.index', _external=True)
+            self.lws_ext_lnk = url_for('api.get_literary_works', _external=True)
+            self.lws_lnk = url_for('api.get_literary_works')
+            self.lws_lnk_pg2 = url_for('api.get_literary_works', page=2)
+            self.authors_lnk = url_for('api.get_authors')
+            self.token_lnk = url_for('api.get_token')
 
     def tearDown(self):
         db.session.remove()
@@ -30,9 +38,7 @@ class RESTAPITestCase(unittest.TestCase):
         }
 
     def test_root_route(self):
-        response = self.client.get(
-            url_for('api.index')
-        )
+        response = self.client.get(self.index_ext_lnk)
         self.assertTrue(response.status_code == 200)
 
     def test_auth_roles(self):
@@ -73,7 +79,7 @@ class RESTAPITestCase(unittest.TestCase):
 
         # test page 1
         response = self.client.get(
-            url_for('api.get_literary_works'),
+            self.lws_ext_lnk,
             headers=self.generate_auth_header("duke@example.com", "hardcore")
         )
         self.assertTrue(response.status_code == 200)
@@ -95,7 +101,7 @@ class RESTAPITestCase(unittest.TestCase):
         self.assertTrue(json_response["_links"]["self"]["href"] == self_pg)
 
         response2 = self.client.get(
-            url_for('api.get_literary_works', page=2),
+            self.lws_lnk_pg2,
             headers=self.generate_auth_header("duke@example.com", "hardcore")
         )
         self.assertTrue(response2.status_code == 200)
@@ -118,16 +124,14 @@ class RESTAPITestCase(unittest.TestCase):
         self.assertTrue(get_user.id == duke_id)
 
         # get without login
-        response = self.client.get(
-            url_for('api.get_literary_works')
-        )
+        response = self.client.get(self.lws_lnk)
         self.assertTrue(response.status_code == 403)
         self.assertTrue('Insufficient permissions' in
                         response.get_data(as_text=True))
 
         # get with invalid login
         response = self.client.get(
-            url_for('api.get_literary_works'),
+            self.lws_lnk,
             headers=self.generate_auth_header("duke", "nightmare")
         )
         self.assertTrue(response.status_code == 401)
@@ -136,7 +140,7 @@ class RESTAPITestCase(unittest.TestCase):
 
         # get with valid login
         response = self.client.get(
-            url_for('api.get_literary_works'),
+            self.lws_lnk,
             headers=self.generate_auth_header("duke@example.com", "hardcore")
         )
         json_response = loads(response.data.decode('utf-8'))
@@ -169,7 +173,7 @@ class RESTAPITestCase(unittest.TestCase):
 
         # get with valid login and some data
         response = self.client.get(
-            url_for('api.get_literary_works'),
+            self.lws_lnk,
             headers=self.generate_auth_header("duke@example.com", "hardcore")
         )
         json_response = loads(response.data.decode('utf-8'))
@@ -179,3 +183,65 @@ class RESTAPITestCase(unittest.TestCase):
         self.assertTrue("next" not in json_response["_links"].keys())
         self.assertTrue(json_response["_items"] != [])
         self.assertTrue(response.status_code == 200)
+
+    def test_authentication(self):
+        admin_role = AuthRole.query.filter_by(name='administrator').first()
+        duke = AuthUser(email="duke@example.com", username="duke",
+                        password="hardcore", confirmed=True,
+                        role=admin_role)
+        unconfirmed_user = AuthUser(email="unk@example.com", username="unk",
+                                    password="unk-pass", confirmed=False,
+                                    role=admin_role)
+        db.session.add(duke)
+        db.session.add(unconfirmed_user)
+        db.session.commit()
+
+        # get auth_token with wrong credentials
+        response = self.client.get(
+            self.token_lnk,
+            headers=self.generate_auth_header("duke@example.com", "wrong_pass")
+        )
+        self.assertTrue(response.status_code == 401)
+        self.assertTrue('unauthorized' in response.get_data(as_text=True))
+
+        # get auth_token with valid credentials
+        response = self.client.get(
+            self.token_lnk,
+            headers=self.generate_auth_header("duke@example.com", "hardcore")
+        )
+        self.assertTrue(response.status_code == 200)
+        valid_token_response = loads(response.data.decode('utf-8'))
+        self.assertIsNotNone(valid_token_response.get("token"))
+        self.assertTrue(
+            valid_token_response["expiration"] ==
+            current_app.config['ELIBRARIAN_TOKEN_EXPIRATION_TIME'])
+
+        # get lws without token
+        response = self.client.get(
+            self.lws_lnk,
+            headers=self.generate_auth_header("FakeTokenString", "")
+        )
+        self.assertTrue(response.status_code == 401)
+        self.assertTrue('unauthorized' in response.get_data(as_text=True))
+
+        # get lws with valid token
+        response = self.client.get(
+            self.lws_lnk,
+            headers=self.generate_auth_header(valid_token_response["token"], "")
+        )
+        self.assertTrue(response.status_code == 200)
+
+        # get authors with valid token
+        response = self.client.get(
+            self.authors_lnk,
+            headers=self.generate_auth_header(valid_token_response["token"], "")
+        )
+        self.assertTrue(response.status_code == 200)
+
+        # test for valid, but unconfirmed user - we should forbid this
+        response = self.client.get(
+            self.lws_lnk,
+            headers=self.generate_auth_header("unk@example.com", "unk-pass")
+        )
+        self.assertTrue(response.status_code == 403)
+

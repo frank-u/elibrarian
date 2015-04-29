@@ -245,3 +245,10 @@ class RESTAPITestCase(unittest.TestCase):
         )
         self.assertTrue(response.status_code == 403)
 
+        # test anonymous user accessing the actual API resources
+        response = self.client.get(
+            self.lws_lnk,
+            headers=self.generate_auth_header("", ""))
+        self.assertTrue(response.status_code == 403)
+        self.assertTrue('Insufficient permissions' in
+                        response.get_data(as_text=True))

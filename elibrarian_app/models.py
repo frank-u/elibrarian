@@ -209,9 +209,15 @@ class Author(db.Model):
     def full_name(self):
         # TODO: Return full_name on preferred lang or default otherwise
         details = self.details.first()
-        full_name_row = " ".join([details.first_name, details.middle_name,
-                                  details.last_name])
-        return compile(r'\s+').sub(' ', full_name_row)
+        if details:
+            full_name_row = " ".join([
+                details.first_name if details.first_name else "",
+                details.middle_name if details.middle_name else "",
+                details.last_name
+            ])
+            return compile(r'\s+').sub(' ', full_name_row)
+        else:
+            return ""
 
     def get_literary_works(self):
         return [assoc.literary_works for assoc in self.literary_works]
@@ -223,20 +229,21 @@ class Author(db.Model):
             'url': url_for('api.get_author', author_id=self.id, _external=True),
             'name': self.full_name,
             'literary_works': [
-                {#'title': lw.title,
-                 'id': lw.id,
-                 'url': url_for('api.get_literary_work', work_id=lw.id,
-                                _external=True)
-                 }
+                {
+                    'id': lw.id,
+                    'url': url_for('api.get_literary_work',
+                                   work_id=lw.id, _external=True)
+                }
                 for lw in self.get_literary_works()
             ]
         }
         if self.original_lang:
             json_post['original_lang'] = self.original_lang
-        if details.nickname:
-            json_post['nickname'] = details.nickname
-        if details.wikipedia_hyperlink:
-            json_post['wikipedia_hyperlink'] = details.wikipedia_hyperlink
+        if details:
+            if details.nickname:
+                json_post['nickname'] = details.nickname
+            if details.wikipedia_hyperlink:
+                json_post['wikipedia_hyperlink'] = details.wikipedia_hyperlink
         return json_post
 
 

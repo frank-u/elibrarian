@@ -5,7 +5,6 @@ from elibrarian_app.models import AuthRole, AuthUser, Author, AuthorDetail, \
     LiteraryWork, LiteraryWorkDetail
 from flask import current_app, url_for
 from json import loads
-from pprint import pprint
 
 
 class RESTAPITestCase(unittest.TestCase):
@@ -22,6 +21,7 @@ class RESTAPITestCase(unittest.TestCase):
             self.lws_lnk = url_for('api.get_literary_works')
             self.lws_lnk_pg2 = url_for('api.get_literary_works', page=2)
             self.authors_lnk = url_for('api.get_authors')
+            self.authors_lnk_pg2 = url_for('api.get_authors', page=2)
             self.token_lnk = url_for('api.get_token')
 
     def tearDown(self):
@@ -110,6 +110,83 @@ class RESTAPITestCase(unittest.TestCase):
         self.assertTrue(json_response2["_meta"]["page"] == 2)
         self.assertTrue(json_response2["_links"]["next"] == lw_pg3)
         self.assertTrue(json_response2["_links"]["prev"] == lw_pg1)
+
+    def test_get_authors(self):
+        admin_role = AuthRole.query.filter_by(name='administrator').first()
+        duke = AuthUser(email="duke@example.com", username="duke",
+                        password="hardcore", confirmed=True,
+                        role=admin_role)
+        db.session.add(duke)
+        db.session.commit()
+        duke_id = duke.id
+
+        get_user = AuthUser.query.filter_by(id=duke_id).first()
+        self.assertTrue(get_user.id == duke_id)
+
+        # get with valid login
+        response = self.client.get(
+            self.authors_lnk,
+            headers=self.generate_auth_header("duke@example.com", "hardcore")
+        )
+        json_response = loads(response.data.decode('utf-8'))
+        self.assertTrue(json_response["_meta"]["total"] == 0)
+        self.assertTrue(json_response["_items"] == [])
+        self.assertTrue(response.status_code == 200)
+
+        # add 100 authors
+        for i in range(100):
+            author = Author()
+            db.session.add(author)
+            author_details = AuthorDetail()
+            author_details.lang = "en"
+            author_details.last_name = "London_" + str(i)
+            author_details.first_name = "Jack"
+            author.details.append(author_details)
+        db.session.commit()
+
+        with current_app.test_request_context('/'):
+            authors_pg1 = url_for('api.get_authors', page=1, _external=True)
+            authors_pg2 = url_for('api.get_authors', page=2, _external=True)
+            authors_pg3 = url_for('api.get_authors', page=3, _external=True)
+            parent_pg = url_for('api.index', _external=True)
+            self_pg = url_for('api.get_authors', _external=True)
+
+        # get page 1 with valid login and some data
+        response = self.client.get(
+            self.authors_lnk,
+            headers=self.generate_auth_header("duke@example.com", "hardcore")
+        )
+        self.assertTrue(response.status_code == 200)
+        json_response = loads(response.data.decode('utf-8'))
+        self.assertTrue(json_response["_meta"]["page"] == 1)
+        self.assertTrue(json_response["_meta"]["total"] == 100)
+        self.assertTrue(json_response["_meta"]["max_results"] ==
+                        current_app.config['ELIBRARIAN_ITEMS_PER_PAGE'])
+        self.assertTrue("prev" not in json_response["_links"].keys())
+        self.assertTrue("next" in json_response["_links"].keys())
+        self.assertTrue(json_response["_links"]["next"] == authors_pg2)
+        self.assertTrue(json_response["_links"]["parent"]["href"] == parent_pg)
+        self.assertTrue(json_response["_links"]["self"]["href"] == self_pg)
+        self.assertTrue(json_response["_items"] != [])
+
+        # get page 2 with valid login and some data
+        response = self.client.get(
+            self.authors_lnk_pg2,
+            headers=self.generate_auth_header("duke@example.com", "hardcore")
+        )
+        self.assertTrue(response.status_code == 200)
+        json_response = loads(response.data.decode('utf-8'))
+        self.assertTrue(json_response["_meta"]["page"] == 2)
+        self.assertTrue(json_response["_meta"]["total"] == 100)
+        self.assertTrue(json_response["_meta"]["max_results"] ==
+                        current_app.config['ELIBRARIAN_ITEMS_PER_PAGE'])
+        self.assertTrue("prev" in json_response["_links"].keys())
+        self.assertTrue("next" in json_response["_links"].keys())
+        self.assertTrue(json_response["_links"]["next"] == authors_pg3)
+        self.assertTrue(json_response["_links"]["prev"] == authors_pg1)
+        self.assertTrue(json_response["_links"]["parent"]["href"] == parent_pg)
+        self.assertTrue(json_response["_links"]["self"]["href"] == self_pg)
+        self.assertTrue(json_response["_items"] != [])
 
     def test_get_literary_works(self):
         admin_role = AuthRole.query.filter_by(name='administrator').first()
@@ -237,6 +314,17 @@ class RESTAPITestCase(unittest.TestCase):
             headers=self.generate_auth_header(valid_token_response["token"], "")
         )
         self.assertTrue(response.status_code == 200)
+
+        # try to obtain new token with valid token
+        response = self.client.get(
+            self.token_lnk,
+            headers=self.generate_auth_header(valid_token_response["token"], "")
+        )
+        self.assertTrue(response.status_code == 401)
+        self.assertTrue('unauthorized' in
+                        response.get_data(as_text=True))
+        self.assertTrue('Invalid credentials' in
+                        response.get_data(as_text=True))
 
         # test for valid, but unconfirmed user - we should forbid this
         response = self.client.get(

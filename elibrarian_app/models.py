@@ -275,7 +275,7 @@ class LiteraryWork(db.Model):
             literary_work_id=self.id).all()
         return [Author.query.filter_by(id=lw.author_id).scalar() for lw in lws]
 
-    def to_json(self):
+    def to_json(self, lang="en"):
         json = {
             'id': self.id,
             'url': url_for('api.get_literary_work', work_id=self.id,
@@ -293,12 +293,16 @@ class LiteraryWork(db.Model):
                 for author in self.get_authors()
             ]
         }
-        # TODO: Implement language agnostic API or return annotations on all
-        # stored languages
-        # if self.annotation:
-        # json['annotation'] = self.annotation
         if self.creation_datestring:
             json['creation_datestring'] = self.creation_datestring
+        # catch-up literary works details
+        details = self.details.filter_by(lang=lang).all()
+        if not details:
+            details = self.details.all()
+        if details:
+            json['title'] = details[0].title
+            if details[0].annotation:
+                json['annotation'] = details[0].annotation
         return json
 
 

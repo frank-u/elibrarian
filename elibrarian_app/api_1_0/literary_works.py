@@ -1,4 +1,4 @@
-from flask import current_app, jsonify, request, url_for
+from flask import current_app, g, jsonify, request, url_for
 from . import api, make_json_response
 from .authentication import permission_required
 from ..models import LiteraryWork, Permission
@@ -26,8 +26,12 @@ def get_literary_works():
                               href=url_for('api.get_literary_works',
                                            _external=True),
                               href_parent=url_for('api.index', _external=True),
-                              items=[work.to_json() for work in
-                                     works_list],
+                              items=[
+                                  work.to_json(
+                                      lang=g.current_user.preferred_lang)
+                                  for work
+                                  in works_list
+                              ],
                               next_page=next_page,
                               prev=prev_page)
 

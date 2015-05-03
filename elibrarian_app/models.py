@@ -280,9 +280,6 @@ class LiteraryWork(db.Model):
             'id': self.id,
             'url': url_for('api.get_literary_work', work_id=self.id,
                            _external=True),
-            # TODO: Implement language agnostic API or return titles on all
-            # stored languages
-            # 'title': self.title,
             'original_lang': self.original_lang,
             'authors': [
                 {'name': author.full_name,
@@ -301,6 +298,7 @@ class LiteraryWork(db.Model):
             details = self.details.all()
         if details:
             json['title'] = details[0].title
+            json['lang'] = details[0].lang
             if details[0].annotation:
                 json['annotation'] = details[0].annotation
         return json

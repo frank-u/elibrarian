@@ -222,21 +222,25 @@ class Author(db.Model):
     def get_literary_works(self):
         return [assoc.literary_works for assoc in self.literary_works]
 
-    def to_json(self):
+    def to_json(self, lang="en"):
         details = self.details.first()
         json_post = {
             'id': self.id,
             'url': url_for('api.get_author', author_id=self.id, _external=True),
             'name': self.full_name,
-            'literary_works': [
-                {
-                    'id': lw.id,
-                    'url': url_for('api.get_literary_work',
-                                   work_id=lw.id, _external=True)
-                }
-                for lw in self.get_literary_works()
-            ]
+            'literary_works': []
         }
+        for lw in self.get_literary_works():
+            lw_base = {
+                'id': lw.id,
+                'url': url_for('api.get_literary_work',
+                               work_id=lw.id, _external=True)
+            }
+            lw_detail = lw.get_details(lang=lang)
+            if lw_detail:
+                for key in ('title', 'lang'):
+                    lw_base[key] = lw_detail[key]
+            json_post['literary_works'].append(lw_base)
         if self.original_lang:
             json_post['original_lang'] = self.original_lang
         if details:
@@ -275,6 +279,27 @@ class LiteraryWork(db.Model):
             literary_work_id=self.id).all()
         return [Author.query.filter_by(id=lw.author_id).scalar() for lw in lws]
 
+    def get_details(self, lang="en"):
+        """
+            Return literary work details dictionary in preferred language, or
+        search english if 'lang' is not specified or trying for find any details
+        if no details with above languages exist.
+        """
+        details = self.details.filter_by(lang=lang).first()
+        if not details:
+            details = self.details.filter_by(lang="en").first()
+        if not details:
+            details = self.details.first()
+        if details:
+            result = {
+                'title': details.title,
+                'lang': details.lang
+            }
+            if details.annotation:
+                result['annotation'] = details.annotation
+            return result
+        return None
+
     def to_json(self, lang="en"):
         json = {
             'id': self.id,
@@ -293,14 +318,9 @@ class LiteraryWork(db.Model):
         if self.creation_datestring:
             json['creation_datestring'] = self.creation_datestring
         # catch-up literary works details
-        details = self.details.filter_by(lang=lang).all()
-        if not details:
-            details = self.details.all()
+        details = self.get_details(lang=lang)
         if details:
-            json['title'] = details[0].title
-            json['lang'] = details[0].lang
-            if details[0].annotation:
-                json['annotation'] = details[0].annotation
+            json.update(details)
         return json
 
 

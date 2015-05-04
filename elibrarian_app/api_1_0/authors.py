@@ -1,4 +1,4 @@
-from flask import current_app, jsonify, request, url_for
+from flask import current_app, g, jsonify, request, url_for
 from . import api, make_json_response
 from .authentication import permission_required
 from ..models import Author, Permission
@@ -22,8 +22,13 @@ def get_authors():
                               per_page=per_page,
                               href=url_for('api.get_authors', _external=True),
                               href_parent=url_for('api.index', _external=True),
-                              items=[author.to_json() for author in
-                                     authors_list],
+                              items=[
+                                  author.to_json(
+                                      lang=g.current_user.preferred_lang
+                                  )
+                                  for author
+                                  in authors_list
+                              ],
                               next_page=next_page,
                               prev=prev_page)
 

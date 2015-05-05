@@ -5,6 +5,7 @@ api = Blueprint('api', __name__)
 
 def make_json_response(page, pages, per_page, href, href_parent,
                        items, next_page, prev):
+    # TODO: Print in response current page and total pages in result set
     json_response_body = {
         "_meta": {
             "page": page,

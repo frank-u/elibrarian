@@ -9,6 +9,7 @@ from ..models import Author, Permission
 def get_authors():
     """List of authors"""
     page = request.args.get('page', 1, type=int)
+    lang = request.args.get('lang', g.current_user.preferred_lang, type=str)
     per_page = current_app.config['ELIBRARIAN_ITEMS_PER_PAGE']
     pagination = Author.query.paginate(page, per_page=per_page, error_out=False)
     authors_list = pagination.items
@@ -23,9 +24,7 @@ def get_authors():
                               href=url_for('api.get_authors', _external=True),
                               href_parent=url_for('api.index', _external=True),
                               items=[
-                                  author.to_json(
-                                      lang=g.current_user.preferred_lang
-                                  )
+                                  author.to_json(lang=lang)
                                   for author
                                   in authors_list
                               ],
@@ -37,5 +36,6 @@ def get_authors():
 @permission_required(Permission.VIEW_LIBRARY_ITEMS)
 def get_author(author_id):
     """Author details"""
+    lang = request.args.get('lang', g.current_user.preferred_lang, type=str)
     author = Author.query.get_or_404(author_id)
-    return jsonify(author.to_json())
+    return jsonify(author.to_json(lang=lang, verbose=True))

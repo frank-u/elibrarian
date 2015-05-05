@@ -8,7 +8,9 @@ from ..models import LiteraryWork, Permission
 @permission_required(Permission.VIEW_LIBRARY_ITEMS)
 def get_literary_works():
     """List of literary-works"""
+    # TODO: Check pagination bounds
     page = request.args.get('page', 1, type=int)
+    lang = request.args.get('lang', g.current_user.preferred_lang, type=str)
     per_page = current_app.config['ELIBRARIAN_ITEMS_PER_PAGE']
     pagination = LiteraryWork.query.paginate(page, per_page=per_page,
                                              error_out=False)
@@ -27,8 +29,7 @@ def get_literary_works():
                                            _external=True),
                               href_parent=url_for('api.index', _external=True),
                               items=[
-                                  work.to_json(
-                                      lang=g.current_user.preferred_lang)
+                                  work.to_json(lang=lang)
                                   for work
                                   in works_list
                               ],
@@ -40,5 +41,6 @@ def get_literary_works():
 @permission_required(Permission.VIEW_LIBRARY_ITEMS)
 def get_literary_work(work_id):
     """Literary work"""
+    lang = request.args.get('lang', g.current_user.preferred_lang, type=str)
     work = LiteraryWork.query.get_or_404(work_id)
-    return jsonify(work.to_json())
+    return jsonify(work.to_json(lang=lang))

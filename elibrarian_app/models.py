@@ -1,6 +1,6 @@
 import hashlib
 from datetime import datetime
-from flask import current_app, request, url_for
+from flask import current_app, g, request, url_for
 from flask.ext.login import AnonymousUserMixin, UserMixin
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 from re import compile
@@ -206,30 +206,44 @@ class Author(db.Model):
     literary_works = db.relationship('Authors2LiteraryWorks', backref='author')
 
     @property
-    def full_name(self):
-        # TODO: Return full_name on preferred lang or default otherwise
-        details = self.details.first()
-        if details:
-            full_name_row = " ".join([
-                details.first_name if details.first_name else "",
-                details.middle_name if details.middle_name else "",
-                details.last_name
-            ])
-            return compile(r'\s+').sub(' ', full_name_row)
+    def full_name(self, lang):
+        if lang:
+            return self.get_details(lang)['full_name']
         else:
-            return ""
+            return self.get_details(g.current_user.preferred_lang)['full_name']
+
+    def get_details(self, lang="en"):
+        """
+            Return author details dictionary in preferred language, or
+        search english if 'lang' is not specified or trying for find any details
+        if no details with above languages exist.
+        """
+        details = self.details.filter_by(lang=lang).first()
+        if not details:
+            details = self.details.filter_by(lang="en").first()
+        if not details:
+            details = self.details.first()
+        if details:
+            return details.to_json()
+        return None
 
     def get_literary_works(self):
         return [assoc.literary_works for assoc in self.literary_works]
 
-    def to_json(self, lang="en"):
-        details = self.details.first()
-        json_post = {
+    def to_json(self, lang="en", verbose=False):
+        json = {
             'id': self.id,
             'url': url_for('api.get_author', author_id=self.id, _external=True),
-            'name': self.full_name,
             'literary_works': []
         }
+        if verbose:
+            json.update(self.get_details(lang=lang))
+        else:
+            json['full_name'] = self.get_details(lang=lang)['full_name']
+            json['lang'] = self.get_details(lang=lang)['lang']
+        if self.original_lang:
+            json['original_lang'] = self.original_lang
+
         for lw in self.get_literary_works():
             lw_base = {
                 'id': lw.id,
@@ -240,27 +254,47 @@ class Author(db.Model):
             if lw_detail:
                 for key in ('title', 'lang'):
                     lw_base[key] = lw_detail[key]
-            json_post['literary_works'].append(lw_base)
-        if self.original_lang:
-            json_post['original_lang'] = self.original_lang
-        if details:
-            if details.nickname:
-                json_post['nickname'] = details.nickname
-            if details.wikipedia_hyperlink:
-                json_post['wikipedia_hyperlink'] = details.wikipedia_hyperlink
-        return json_post
+            json['literary_works'].append(lw_base)
+        return json
 
 
 class AuthorDetail(db.Model):
     """Multilingual author's detailed information"""
     __tablename__ = "authors_details"
-    id = db.Column(db.Integer, db.ForeignKey('authors.id'), primary_key=True)
+    id = db.Column(db.Integer, db.ForeignKey('authors.id'))
     lang = db.Column(db.String(3), nullable=False)
     last_name = db.Column(db.String(63), nullable=False, index=True)
     first_name = db.Column(db.String(63), nullable=True)
     middle_name = db.Column(db.String(63), nullable=True)
     nickname = db.Column(db.String(127), nullable=True)
     wikipedia_hyperlink = db.Column(db.String(255), nullable=True)
+
+    __table_args__ = (
+        db.PrimaryKeyConstraint('id', 'lang', name='author_id-lang_pkey'),
+        {},
+    )
+
+    def to_json(self):
+        result = {
+            'lang': self.lang,
+            'last_name': self.last_name,
+            'full_name': self.last_name
+        }
+        if self.middle_name:
+            result['middle_name'] = self.middle_name
+            result['full_name'] = " ".join(
+                (self.middle_name, result['full_name'])
+            )
+        if self.first_name:
+            result['first_name'] = self.first_name
+            result['full_name'] = " ".join(
+                (self.first_name, result['full_name'])
+            )
+        if self.nickname:
+            result['nickname'] = self.nickname
+        if self.wikipedia_hyperlink:
+            result['wikipedia_hyperlink'] = self.wikipedia_hyperlink
+        return result
 
 
 class LiteraryWork(db.Model):
@@ -301,13 +335,14 @@ class LiteraryWork(db.Model):
         return None
 
     def to_json(self, lang="en"):
+        # TODO: Implement verbosity for json in listing and individual item
         json = {
             'id': self.id,
             'url': url_for('api.get_literary_work', work_id=self.id,
                            _external=True),
             'original_lang': self.original_lang,
             'authors': [
-                {'name': author.full_name,
+                {'name': author.get_details(lang=lang)['full_name'],
                  'id': author.id,
                  'url': url_for('api.get_author', author_id=author.id,
                                 _external=True)

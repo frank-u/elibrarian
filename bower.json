@@ -1,0 +1,29 @@
+{
+  "name": "elibrarian",
+  "version": "0.0.1",
+  "homepage": "https://github.com/frank-u/elibrarian",
+  "authors": [
+    "Oleksandr Poliatykin <poliatykin@gmail.com>"
+  ],
+  "description": "eLibrarian - Keep track of what you reading",
+  "moduleType": [
+    "amd",
+    "es6"
+  ],
+  "keywords": [
+    "elibrarian"
+  ],
+  "license": "GPL",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "bootstrap": "~3.3.4",
+    "jquery": "~2.1.4",
+    "react": "~0.13.2"
+  }
+}

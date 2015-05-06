@@ -1,6 +1,7 @@
+from flask import render_template
 from . import webui
 
 
 @webui.route('/', methods=['GET'])
 def index():
-    return "UI is not implemented yet!"
+    return render_template("ui_head.html")

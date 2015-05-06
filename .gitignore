@@ -1,6 +1,11 @@
 tmp/
 db-*.sqlite
 pylint.out
+node_modules/
+
+#front-end dirs
+elibrarian_app/webui/static/bower_components/
+elibrarian_app/webui/static/scripts/js
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

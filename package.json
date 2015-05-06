@@ -1,0 +1,34 @@
+{
+  "name": "elibrarian",
+  "version": "0.0.1",
+  "description": "eLibrarian - Keep track of what you reading",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/frank-u/elibrarian.git"
+  },
+  "keywords": [
+    "elibrarian"
+  ],
+  "author": "Oleksandr Poliatykin",
+  "license": "GPL",
+  "bugs": {
+    "url": "https://github.com/frank-u/elibrarian/issues"
+  },
+  "homepage": "https://github.com/frank-u/elibrarian",
+  "devDependencies": {
+    "bower": "^1.4.1",
+    "gulp": "^3.8.11",
+    "gulp-browserify": "^0.5.1",
+    "gulp-clean": "^0.3.1",
+    "gulp-size": "^1.2.1",
+    "react": "^0.13.2",
+    "reactify": "^1.1.0"
+  }
+}

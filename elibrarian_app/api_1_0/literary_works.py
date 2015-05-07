@@ -43,4 +43,4 @@ def get_literary_work(work_id):
     """Literary work"""
     lang = request.args.get('lang', g.current_user.preferred_lang, type=str)
     work = LiteraryWork.query.get_or_404(work_id)
-    return jsonify(work.to_json(lang=lang))
+    return jsonify(work.to_json(lang=lang, verbose=True))

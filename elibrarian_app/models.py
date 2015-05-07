@@ -313,7 +313,7 @@ class LiteraryWork(db.Model):
             literary_work_id=self.id).all()
         return [Author.query.filter_by(id=lw.author_id).scalar() for lw in lws]
 
-    def get_details(self, lang="en"):
+    def get_details(self, lang="en", verbose=False):
         """
             Return literary work details dictionary in preferred language, or
         search english if 'lang' is not specified or trying for find any details
@@ -329,12 +329,12 @@ class LiteraryWork(db.Model):
                 'title': details.title,
                 'lang': details.lang
             }
-            if details.annotation:
+            if verbose and details.annotation:
                 result['annotation'] = details.annotation
             return result
         return None
 
-    def to_json(self, lang="en"):
+    def to_json(self, lang="en", verbose=False):
         # TODO: Implement verbosity for json in listing and individual item
         json = {
             'id': self.id,
@@ -353,7 +353,7 @@ class LiteraryWork(db.Model):
         if self.creation_datestring:
             json['creation_datestring'] = self.creation_datestring
         # catch-up literary works details
-        details = self.get_details(lang=lang)
+        details = self.get_details(lang=lang, verbose=verbose)
         if details:
             json.update(details)
         return json

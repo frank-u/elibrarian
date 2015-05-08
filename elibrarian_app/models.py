@@ -1,15 +1,20 @@
+"""
+    Module contains all DB models, which makes the database structure and
+behaviour.
+"""
 import hashlib
 from datetime import datetime
 from flask import current_app, g, request, url_for
 from flask.ext.login import AnonymousUserMixin, UserMixin
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
-from re import compile
+from itsdangerous import BadSignature, SignatureExpired
 from werkzeug.security import generate_password_hash, check_password_hash
 from . import db, login_manager
 
 
-# ----=[ authentication support models ]=---------------------------------------
+# ----=[ authentication support models ]=--------------------------------------
 class Permission:
+    """Describes bit fields in permissions value of AuthRole model"""
     VIEW_LIBRARY_STATS = 0x01
     VIEW_LIBRARY_ITEMS_METADATA = 0x02
     VIEW_LIBRARY_ITEMS = 0x04
@@ -19,6 +24,10 @@ class Permission:
 
 
 class AuthRole(db.Model):
+    """
+        Describes database access roles which composed of different sets of
+    permissions
+    """
     __tablename__ = 'auth_roles'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True)
@@ -26,8 +35,15 @@ class AuthRole(db.Model):
     permissions = db.Column(db.Integer)
     users = db.relationship('AuthUser', backref='role', lazy='dynamic')
 
+    def __init__(self, name, permissions=0, default=False):
+        super(AuthRole, self).__init__()
+        self.name = name
+        self.permissions = permissions
+        self.default = default
+
     @staticmethod
     def insert_roles():
+        """Helper for initial fill-in predefined default roles"""
         roles = {
             # user - is the default role assigned when creating a user
             'user': (Permission.VIEW_LIBRARY_STATS |
@@ -38,12 +54,12 @@ class AuthRole(db.Model):
                           Permission.DOWNLOAD_FROM_LIBRARY_STORAGE, False),
             'administrator': (0xff, False)
         }
-        for r in roles:
-            role = AuthRole.query.filter_by(name=r).first()
+        for role_name in roles:
+            role = AuthRole.query.filter_by(name=role_name).first()
             if role is None:
-                role = AuthRole(name=r)
-            role.permissions = roles[r][0]
-            role.default = roles[r][1]
+                role = AuthRole(name=role_name)
+            role.permissions = roles[role_name][0]
+            role.default = roles[role_name][1]
             db.session.add(role)
         db.session.commit()
 
@@ -52,6 +68,10 @@ class AuthRole(db.Model):
 
 
 class AuthUser(UserMixin, db.Model):
+    """
+        Describes eLibrarian's end user.
+        Stores fields describing user, his credentials, role, etc.
+    """
     __tablename__ = 'auth_users'
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(64), unique=True, index=True)
@@ -78,24 +98,36 @@ class AuthUser(UserMixin, db.Model):
 
     @property
     def password(self):
+        """Do not allow to read plain password"""
         raise AttributeError('password is not a readable attribute')
 
     @password.setter
     def password(self, password):
+        """Save only password hash instead of password"""
         self.password_hash = generate_password_hash(password)
 
     def verify_password(self, password):
+        """Verify that given password belongs to this user by checking hash"""
         return check_password_hash(self.password_hash, password)
 
     def generate_confirmation_token(self, expiration=3600):
-        s = Serializer(current_app.config['SECRET_KEY'], expiration)
-        return s.dumps({'confirm': self.id})
+        """Generate confirmation token with expiration time in seconds and
+        return a JSON"""
+        serializer = Serializer(current_app.config['SECRET_KEY'], expiration)
+        return serializer.dumps({'confirm': self.id})
 
     def confirm(self, token):
-        s = Serializer(current_app.config['SECRET_KEY'])
+        """
+            First, checks that given token is:
+            - valid;
+            - the 'confirm' type token;
+            - belong to this user.
+            After that save to database that this user is confirmed.
+        """
+        serializer = Serializer(current_app.config['SECRET_KEY'])
         try:
-            data = s.loads(token)
-        except:
+            data = serializer.loads(token)
+        except (BadSignature, SignatureExpired):
             return False
         if data.get('confirm') != self.id:
             return False
@@ -104,14 +136,24 @@ class AuthUser(UserMixin, db.Model):
         return True
 
     def generate_reset_token(self, expiration=3600):
-        s = Serializer(current_app.config['SECRET_KEY'], expiration)
-        return s.dumps({'reset': self.id})
+        """Generate token to reset password with expiration time in seconds and
+        return a JSON"""
+        serializer = Serializer(current_app.config['SECRET_KEY'], expiration)
+        return serializer.dumps({'reset': self.id})
 
     def reset_password(self, token, new_password):
-        s = Serializer(current_app.config['SECRET_KEY'])
+        """
+            First, checks that given token is:
+            - valid;
+            - the 'reset' type token;
+            - belong to this user.
+            After that set 'new_password' to this user object and append object
+        to database session for saving.
+        """
+        serializer = Serializer(current_app.config['SECRET_KEY'])
         try:
-            data = s.loads(token)
-        except:
+            data = serializer.loads(token)
+        except (BadSignature, SignatureExpired):
             return False
         if data.get('reset') != self.id:
             return False
@@ -120,14 +162,26 @@ class AuthUser(UserMixin, db.Model):
         return True
 
     def generate_email_change_token(self, new_email, expiration=3600):
-        s = Serializer(current_app.config['SECRET_KEY'], expiration)
-        return s.dumps({'change_email': self.id, 'new_email': new_email})
+        """Generate token to change email with expiration time in seconds and
+        return a JSON"""
+        serializer = Serializer(current_app.config['SECRET_KEY'], expiration)
+        return serializer.dumps(
+            {'change_email': self.id, 'new_email': new_email}
+        )
 
     def change_email(self, token):
-        s = Serializer(current_app.config['SECRET_KEY'])
+        """
+            First, checks that given token is:
+            - valid;
+            - the 'change_email' type token;
+            - belong to this user.
+            After that get 'new_email' from token and change email for this
+        user object and append object to database session for saving.
+        """
+        serializer = Serializer(current_app.config['SECRET_KEY'])
         try:
-            data = s.loads(token)
-        except:
+            data = serializer.loads(token)
+        except (BadSignature, SignatureExpired):
             return False
         if data.get('change_email') != self.id:
             return False
@@ -142,13 +196,19 @@ class AuthUser(UserMixin, db.Model):
         return True
 
     def can(self, permissions):
+        """Return true if user has all the permissions"""
         return self.role is not None and \
                (self.role.permissions & permissions) == permissions
 
     def is_administrator(self):
+        """Return true if user is administrator"""
         return self.can(Permission.ADMINISTER)
 
     def ping(self):
+        """
+            Update user's last_seen value.
+            Method should be called on any user activity.
+        """
         self.last_seen = datetime.utcnow()
         db.session.add(self)
 
@@ -157,29 +217,33 @@ class AuthUser(UserMixin, db.Model):
             url = 'https://secure.gravatar.com/avatar'
         else:
             url = 'http://www.gravatar.com/avatar'
-        hash = self.avatar_hash or hashlib.md5(
+        av_hash = self.avatar_hash or hashlib.md5(
             self.email.encode('utf-8')).hexdigest()
         return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
-            url=url, hash=hash, size=size, default=default, rating=rating)
+            url=url, hash=av_hash, size=size, default=default, rating=rating)
 
     def generate_auth_token(self, expiration):
-        s = Serializer(current_app.config['SECRET_KEY'], expires_in=expiration)
-        return s.dumps({'id': self.id}).decode('ascii')
+        serializer = Serializer(current_app.config['SECRET_KEY'],
+                                expires_in=expiration)
+        return serializer.dumps({'id': self.id}).decode('ascii')
 
     @staticmethod
     def verify_auth_token(token):
-        s = Serializer(current_app.config['SECRET_KEY'])
+        serializer = Serializer(current_app.config['SECRET_KEY'])
         try:
-            data = s.loads(token)
-        except:
+            data = serializer.loads(token)
+        except (BadSignature, SignatureExpired):
             return None
         return AuthUser.query.get(data['id'])
 
     def __repr__(self):
-        return "<User {0}({1}, {2})>".format(self.username, self.id, self.email)
+        return "<User {0}({1}, {2})>".format(
+            self.username, self.id, self.email)
 
 
 class AnonymousUser(AnonymousUserMixin):
+    """Disable all permissions for anonymous user"""
+
     def can(self, permissions):
         return False
 
@@ -195,7 +259,7 @@ def load_user(user_id):
     return AuthUser.query.get(int(user_id))
 
 
-# ----=[ primary library models ]=----------------------------------------------
+# ----=[ primary library models ]=---------------------------------------------
 class Author(db.Model):
     """Can be book author, translator or somebody who makes something"""
     __tablename__ = "authors"
@@ -215,8 +279,8 @@ class Author(db.Model):
     def get_details(self, lang="en"):
         """
             Return author details dictionary in preferred language, or
-        search english if 'lang' is not specified or trying for find any details
-        if no details with above languages exist.
+        search english if 'lang' is not specified or trying for find any
+        details if no details with above languages exist.
         """
         details = self.details.filter_by(lang=lang).first()
         if not details:
@@ -233,7 +297,8 @@ class Author(db.Model):
     def to_json(self, lang="en", verbose=False):
         json = {
             'id': self.id,
-            'url': url_for('api.get_author', author_id=self.id, _external=True),
+            'url': url_for('api.get_author', author_id=self.id,
+                           _external=True),
             'literary_works': []
         }
         if verbose:
@@ -316,8 +381,8 @@ class LiteraryWork(db.Model):
     def get_details(self, lang="en", verbose=False):
         """
             Return literary work details dictionary in preferred language, or
-        search english if 'lang' is not specified or trying for find any details
-        if no details with above languages exist.
+        search  english if 'lang' is not specified  or trying for find any
+        details if no details with above languages exist.
         """
         details = self.details.filter_by(lang=lang).first()
         if not details:
@@ -335,18 +400,18 @@ class LiteraryWork(db.Model):
         return None
 
     def to_json(self, lang="en", verbose=False):
-        # TODO: Implement verbosity for json in listing and individual item
         json = {
             'id': self.id,
             'url': url_for('api.get_literary_work', work_id=self.id,
                            _external=True),
             'original_lang': self.original_lang,
             'authors': [
-                {'name': author.get_details(lang=lang)['full_name'],
-                 'id': author.id,
-                 'url': url_for('api.get_author', author_id=author.id,
-                                _external=True)
-                 }
+                {
+                    'name': author.get_details(lang=lang)['full_name'],
+                    'id': author.id,
+                    'url': url_for('api.get_author', author_id=author.id,
+                                   _external=True)
+                }
                 for author in self.get_authors()
             ]
         }
@@ -377,7 +442,8 @@ class LiteraryWorkDetail(db.Model):
         {},
     )
 
-    files = db.relationship('LiteraryWorkStorage', backref='literaryworkdetail',
+    files = db.relationship('LiteraryWorkStorage',
+                            backref='literaryworkdetail',
                             lazy='dynamic')
 
 
@@ -402,6 +468,11 @@ class LiteraryWorkStorage(db.Model):
 
 
 class BookSeries(db.Model):
+    """
+        If different literary works belongs to the serie (like dilogy, trilogy
+    or something else) this model will stick together book with serie.
+        Model also supports hierarchy of series.
+    """
     __tablename__ = 'literary_works_series'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -443,7 +514,7 @@ class GenreDetail(db.Model):
     title = db.Column(db.String(255), nullable=False)
 
 
-# ----=[ primary library join models ]=-----------------------------------------
+# ----=[ primary library join models ]=----------------------------------------
 class Authors2LiteraryWorks(db.Model):
     """Link between authors and their literary works (usually books)"""
     __tablename__ = "authors_2_literary_works"
@@ -462,9 +533,11 @@ class BookSeriesSnap(db.Model):
     """Link between literary works and series"""
     __tablename__ = 'literary_works_2_series'
 
-    literary_work_id = db.Column(db.Integer, db.ForeignKey('literary_works.id'),
+    literary_work_id = db.Column(db.Integer,
+                                 db.ForeignKey('literary_works.id'),
                                  primary_key=True)
-    series_id = db.Column(db.Integer, db.ForeignKey('literary_works_series.id'),
+    series_id = db.Column(db.Integer,
+                          db.ForeignKey('literary_works_series.id'),
                           primary_key=True)
     position = db.Column(db.Integer, primary_key=True)
 
@@ -473,19 +546,21 @@ class BookGenreSnap(db.Model):
     """Link between literary works and genres"""
     __tablename__ = 'literary_works_2_genres'
 
-    literary_work_id = db.Column(db.Integer, db.ForeignKey('literary_works.id'),
+    literary_work_id = db.Column(db.Integer,
+                                 db.ForeignKey('literary_works.id'),
                                  primary_key=True)
     genre_id = db.Column(db.Integer, db.ForeignKey('genres.id'),
                          primary_key=True)
 
 
-# ----=[ user relations with the library ]=-------------------------------------
+# ----=[ user relations with the library ]=------------------------------------
 class AuthUserPersonalLibrary(db.Model):
     """User's personal library. A subset of all known books in "literary_works".
     Contains user's library usage statistics (what to read, book ratings...)"""
     __tablename__ = "users_personal_library"
     user_id = db.Column(db.Integer, db.ForeignKey('auth_users.id'))
-    literary_work_id = db.Column(db.Integer, db.ForeignKey('literary_works.id'))
+    literary_work_id = db.Column(db.Integer,
+                                 db.ForeignKey('literary_works.id'))
     __table_args__ = (
         db.PrimaryKeyConstraint('user_id', 'literary_work_id'),
         {},
@@ -493,7 +568,8 @@ class AuthUserPersonalLibrary(db.Model):
     # Special flags about book in user's personal collection
     plan_to_read = db.Column(db.Boolean, default=False, nullable=False)
     read_flag = db.Column(db.Boolean, default=False, nullable=False)
-    # read progress percentage, not null indicating that user start reading book
+    # read progress percentage, not null indicating that user start to read a
+    # book
     read_progress = db.Column(db.Integer, default=None, nullable=True)
     read_date = db.Column(db.Date, nullable=True)
     rating = db.Column(db.Integer, nullable=True)

@@ -17,7 +17,8 @@ class RESTAPITestCase(unittest.TestCase):
         self.client = self.app.test_client()
         with current_app.test_request_context('/'):
             self.index_ext_lnk = url_for('api.index', _external=True)
-            self.lws_ext_lnk = url_for('api.get_literary_works', _external=True)
+            self.lws_ext_lnk = url_for(
+                'api.get_literary_works', _external=True)
             self.lws_lnk = url_for('api.get_literary_works')
             self.lws_lnk_pg2 = url_for('api.get_literary_works', page=2)
             self.authors_lnk = url_for('api.get_authors')
@@ -57,9 +58,7 @@ class RESTAPITestCase(unittest.TestCase):
         author1 = Author()
         db.session.add(author1)
 
-        author1_details = AuthorDetail()
-        author1_details.lang = "en"
-        author1_details.last_name = "London"
+        author1_details = AuthorDetail("en", "London")
         author1_details.first_name = "Jack"
 
         author1.details.append(author1_details)
@@ -137,9 +136,7 @@ class RESTAPITestCase(unittest.TestCase):
         for i in range(100):
             author = Author()
             db.session.add(author)
-            author_details = AuthorDetail()
-            author_details.lang = "en"
-            author_details.last_name = "London_" + str(i)
+            author_details = AuthorDetail("en", "London_" + str(i))
             author_details.first_name = "Jack"
             author.details.append(author_details)
         db.session.commit()
@@ -229,9 +226,7 @@ class RESTAPITestCase(unittest.TestCase):
         author1 = Author()
         db.session.add(author1)
 
-        author1_details = AuthorDetail()
-        author1_details.lang = "en"
-        author1_details.last_name = "London"
+        author1_details = AuthorDetail("en", "London")
         author1_details.first_name = "Jack"
 
         author1.details.append(author1_details)
@@ -304,21 +299,27 @@ class RESTAPITestCase(unittest.TestCase):
         # get lws with valid token
         response = self.client.get(
             self.lws_lnk,
-            headers=self.generate_auth_header(valid_token_response["token"], "")
+            headers=self.generate_auth_header(
+                valid_token_response["token"], ""
+            )
         )
         self.assertTrue(response.status_code == 200)
 
         # get authors with valid token
         response = self.client.get(
             self.authors_lnk,
-            headers=self.generate_auth_header(valid_token_response["token"], "")
+            headers=self.generate_auth_header(
+                valid_token_response["token"], ""
+            )
         )
         self.assertTrue(response.status_code == 200)
 
         # try to obtain new token with valid token
         response = self.client.get(
             self.token_lnk,
-            headers=self.generate_auth_header(valid_token_response["token"], "")
+            headers=self.generate_auth_header(
+                valid_token_response["token"], ""
+            )
         )
         self.assertTrue(response.status_code == 401)
         self.assertTrue('unauthorized' in

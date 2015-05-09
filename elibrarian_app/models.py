@@ -213,6 +213,7 @@ class AuthUser(UserMixin, db.Model):
         db.session.add(self)
 
     def gravatar(self, size=100, default='identicon', rating='x'):
+        """Get link pointing to user's gravatar"""
         if request.is_secure:
             url = 'https://secure.gravatar.com/avatar'
         else:
@@ -223,12 +224,20 @@ class AuthUser(UserMixin, db.Model):
             url=url, hash=av_hash, size=size, default=default, rating=rating)
 
     def generate_auth_token(self, expiration):
+        """
+            Generate authorization token with user id inside and expiration
+        time in seconds and return a JSON.
+        """
         serializer = Serializer(current_app.config['SECRET_KEY'],
                                 expires_in=expiration)
         return serializer.dumps({'id': self.id}).decode('ascii')
 
     @staticmethod
     def verify_auth_token(token):
+        """
+            Checks that given token is valid and returns the user object given
+        by id inside token
+        """
         serializer = Serializer(current_app.config['SECRET_KEY'])
         try:
             data = serializer.loads(token)
@@ -245,9 +254,11 @@ class AnonymousUser(AnonymousUserMixin):
     """Disable all permissions for anonymous user"""
 
     def can(self, permissions):
+        """Forbid everything despite of permission"""
         return False
 
     def is_administrator(self):
+        """Anonymous is not the administrator"""
         return False
 
 
@@ -256,6 +267,7 @@ login_manager.anonymous_user = AnonymousUser
 
 @login_manager.user_loader
 def load_user(user_id):
+    """Get user object by id for flask auth purpose"""
     return AuthUser.query.get(int(user_id))
 
 
@@ -268,6 +280,11 @@ class Author(db.Model):
 
     details = db.relationship('AuthorDetail', backref='author', lazy='dynamic')
     literary_works = db.relationship('Authors2LiteraryWorks', backref='author')
+
+    def __init__(self, original_lang=None):
+        super(Author, self).__init__()
+        if original_lang:
+            self.original_lang = original_lang
 
     @property
     def full_name(self, lang):
@@ -292,6 +309,10 @@ class Author(db.Model):
         return None
 
     def get_literary_works(self):
+        """
+            Returns list LiteraryWork objects. (Literary works created by this
+        author.
+        """
         return [assoc.literary_works for assoc in self.literary_works]
 
     def to_json(self, lang="en", verbose=False):
@@ -309,13 +330,13 @@ class Author(db.Model):
         if self.original_lang:
             json['original_lang'] = self.original_lang
 
-        for lw in self.get_literary_works():
+        for literary_work in self.get_literary_works():
             lw_base = {
-                'id': lw.id,
+                'id': literary_work.id,
                 'url': url_for('api.get_literary_work',
-                               work_id=lw.id, _external=True)
+                               work_id=literary_work.id, _external=True)
             }
-            lw_detail = lw.get_details(lang=lang)
+            lw_detail = literary_work.get_details(lang=lang)
             if lw_detail:
                 for key in ('title', 'lang'):
                     lw_base[key] = lw_detail[key]
@@ -338,6 +359,11 @@ class AuthorDetail(db.Model):
         db.PrimaryKeyConstraint('id', 'lang', name='author_id-lang_pkey'),
         {},
     )
+
+    def __init__(self, lang, last_name):
+        super(AuthorDetail, self).__init__()
+        self.lang = lang
+        self.last_name = last_name
 
     def to_json(self):
         result = {
@@ -400,6 +426,10 @@ class LiteraryWork(db.Model):
         return None
 
     def to_json(self, lang="en", verbose=False):
+        """
+            Returns JSON representation of literary work on a given language
+        if available, and verbose if needed.
+        """
         json = {
             'id': self.id,
             'url': url_for('api.get_literary_work', work_id=self.id,

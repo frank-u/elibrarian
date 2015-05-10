@@ -64,15 +64,11 @@ class RESTAPITestCase(unittest.TestCase):
         author1.details.append(author1_details)
 
         for i in range(100):
-            lw = LiteraryWork()
-            lw.original_lang = "en"
+            lw = LiteraryWork("en")
             lw.creation_datestring = "1910"
             db.session.add(lw)
 
-            lwd = LiteraryWorkDetail()
-            lwd.lang = "en"
-            lwd.title = "Burning Daylight"
-
+            lwd = LiteraryWorkDetail("en", "Burning Daylight")
             lw.details.append(lwd)
         db.session.commit()
 
@@ -231,15 +227,11 @@ class RESTAPITestCase(unittest.TestCase):
 
         author1.details.append(author1_details)
 
-        lw = LiteraryWork()
-        lw.original_lang = "en"
+        lw = LiteraryWork("en")
         lw.creation_datestring = "1910"
         db.session.add(lw)
 
-        lwd = LiteraryWorkDetail()
-        lwd.lang = "en"
-        lwd.title = "Burning Daylight"
-
+        lwd = LiteraryWorkDetail("en", "Burning Daylight")
         lw.details.append(lwd)
         db.session.commit()
 

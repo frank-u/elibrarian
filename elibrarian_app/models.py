@@ -5,7 +5,7 @@ behaviour.
 import hashlib
 from datetime import datetime
 from flask import current_app, g, request, url_for
-from flask.ext.login import AnonymousUserMixin, UserMixin
+from flask_login import AnonymousUserMixin, UserMixin
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 from itsdangerous import BadSignature, SignatureExpired
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -288,6 +288,10 @@ class Author(db.Model):
 
     @property
     def full_name(self, lang):
+        """
+            Returns constructed full name in language ``lang`` or current user
+        prefered language
+        """
         if lang:
             return self.get_details(lang)['full_name']
         else:
@@ -316,6 +320,11 @@ class Author(db.Model):
         return [assoc.literary_works for assoc in self.literary_works]
 
     def to_json(self, lang="en", verbose=False):
+        """
+            Returns JSON representation of author object and related literary
+        works list on a given language (if available, english by default), and
+        verbose if needed.
+        """
         json = {
             'id': self.id,
             'url': url_for('api.get_author', author_id=self.id,
@@ -366,6 +375,7 @@ class AuthorDetail(db.Model):
         self.last_name = last_name
 
     def to_json(self):
+        """Returns JSON representation of authors detailed information."""
         result = {
             'lang': self.lang,
             'last_name': self.last_name,
@@ -399,7 +409,16 @@ class LiteraryWork(db.Model):
     details = db.relationship('LiteraryWorkDetail', backref='literarywork',
                               lazy='dynamic')
 
+    def __init__(self, original_lang):
+        super(LiteraryWork, self).__init__()
+        if original_lang:
+            self.original_lang = original_lang
+
     def get_authors(self):
+        """
+            Returns list of authors (instances of Author objects) belongs to
+        this literary work.
+        """
         lws = Authors2LiteraryWorks.query.filter_by(
             literary_work_id=self.id).all()
         return [Author.query.filter_by(id=lw.author_id).scalar() for lw in lws]
@@ -476,6 +495,11 @@ class LiteraryWorkDetail(db.Model):
                             backref='literaryworkdetail',
                             lazy='dynamic')
 
+    def __init__(self, lang, title):
+        super(LiteraryWorkDetail, self).__init__()
+        self.lang = lang
+        self.title = title
+
 
 class LiteraryWorkStorage(db.Model):
     """Support storing of files - actual literary work (book) data for selected
@@ -523,6 +547,11 @@ class BookSeriesDetail(db.Model):
     lang = db.Column(db.String(3), nullable=False)
     title = db.Column(db.String(255), nullable=False)
 
+    def __init__(self, lang, title):
+        super(BookSeriesDetail, self).__init__()
+        self.lang = lang
+        self.title = title
+
 
 class Genre(db.Model):
     """Hierarchical table for genres"""
@@ -542,6 +571,11 @@ class GenreDetail(db.Model):
                    primary_key=True)
     lang = db.Column(db.String(3), nullable=False)
     title = db.Column(db.String(255), nullable=False)
+
+    def __init__(self, lang, title):
+        super(GenreDetail, self).__init__()
+        self.lang = lang
+        self.title = title
 
 
 # ----=[ primary library join models ]=----------------------------------------
@@ -606,3 +640,24 @@ class AuthUserPersonalLibrary(db.Model):
     comment = db.Column(db.Text, nullable=True)
 
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __init__(self):
+        super(AuthUserPersonalLibrary, self).__init__()
+        self.plan_to_read = False
+        self.read_flag = False
+
+    @property
+    def rating(self):
+        """Return book rating by a given user"""
+        return self.rating
+
+    @rating.setter
+    def rating(self, rating):
+        """Set personal book rating for a given user"""
+        error_msg = "Rating should be integer or float in range 0.0,...,5.0"
+        if not (isinstance(rating, float) or isinstance(rating, int)):
+            raise TypeError(error_msg)
+        if 0 <= rating <= 5:
+            self.rating = rating
+        else:
+            raise ValueError(error_msg)

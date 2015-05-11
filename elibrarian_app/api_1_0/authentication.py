@@ -1,5 +1,11 @@
+"""
+    Helper functions to support authentication on API:
+    - verifying passwords
+    - generating authorization token
+    - checking permissions
+"""
 from flask import current_app, g, jsonify
-from flask.ext.httpauth import HTTPBasicAuth
+from flask_httpauth import HTTPBasicAuth
 from functools import wraps
 from . import api
 from .errors import unauthorized, forbidden
@@ -10,6 +16,7 @@ auth = HTTPBasicAuth()
 
 @auth.verify_password
 def verify_password(email_or_token, password):
+    """Verifying password or token in request's authorization field"""
     if email_or_token == "":
         g.current_user = AnonymousUser()
         return True
@@ -27,18 +34,28 @@ def verify_password(email_or_token, password):
 
 @auth.error_handler
 def auth_error():
+    """Handler for authentication errors"""
     return unauthorized('Invalid credentials')
 
 
 @api.before_request
 @auth.login_required
 def before_request():
+    """
+        We check, that user is confirmed at every request to API endpoint.
+        We pass here for anonymous user. It will be checked when checking
+    permissions.
+    """
     if not g.current_user.is_anonymous() and not g.current_user.confirmed:
         return forbidden('Unconfirmed account')
 
 
 @api.route('/token')
 def get_token():
+    """
+    :return: authorization token in JSON format for current logged user with
+    default expiration time in seconds.
+    """
     if g.current_user.is_anonymous() or g.token_used:
         return unauthorized('Invalid credentials')
     return jsonify({
@@ -49,12 +66,20 @@ def get_token():
 
 
 def permission_required(permission):
-    def decorator(f):
-        @wraps(f)
+    """Decorator for checking permissions on protected API endpoints"""
+
+    def decorator(func):
+        """actual decorator function"""
+
+        @wraps(func)
         def decorated_function(*args, **kwargs):
+            """
+                Check that current user have all permissions given in
+            permission variable
+            """
             if not g.current_user.can(permission):
                 return forbidden('Insufficient permissions')
-            return f(*args, **kwargs)
+            return func(*args, **kwargs)
 
         return decorated_function
 

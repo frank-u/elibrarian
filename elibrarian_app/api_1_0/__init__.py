@@ -1,3 +1,6 @@
+"""
+    Root entry for api and helper functions
+"""
 from flask import Blueprint, jsonify
 
 api = Blueprint('api', __name__)
@@ -5,6 +8,18 @@ api = Blueprint('api', __name__)
 
 def make_json_response(page, pages, per_page, href, href_parent,
                        items, next_page, prev):
+    """
+        Default response skeleton
+    :param page:
+    :param pages:
+    :param per_page:
+    :param href:
+    :param href_parent:
+    :param items:
+    :param next_page:
+    :param prev:
+    :return:
+    """
     # TODO: Print in response current page and total pages in result set
     json_response_body = {
         "_meta": {
@@ -35,6 +50,11 @@ def make_json_response(page, pages, per_page, href, href_parent,
 
 @api.route('/', methods=['GET'])
 def index():
+    """
+        Root entry for api endpoint
+    :return:
+    """
+    # TODO: Present to user links for all api sections
     return "REST API is not done yet!"
 
 
